@@ -17,6 +17,7 @@ from game import Directions
 import random, util
 
 from game import Agent
+from pacman import GameState
 
 class ReflexAgent(Agent):
     """
@@ -73,13 +74,21 @@ class ReflexAgent(Agent):
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
         newGhostPoss = [ngs.getPosition() for ngs in newGhostStates]
+        #print(newPos,newGhostPoss,newScaredTimes)
         features = [0]*5 #if eat a ghost, if eat a food, 1/distance to closet next food, 1/distance of closet ghost, die
         weights = [2,1.5,1,1,-100]
         if newPos in newGhostPoss: #if agent and one ghost are at the same position in next state
+            #print(newPos,newGhostPoss)
+            #print(successorGameState.isLose())
+            #print(newScaredTimes)
             ghost_ind = next(i for i in range(len(newGhostPoss)) if newGhostPoss[i]==newPos)
             ghost_scared_time = newScaredTimes[ghost_ind]
             if ghost_scared_time > 0: # the ghost still scared, then we eat the ghost
-                 features[0] = 1
+                #print("EAT")
+                features[0] = 1 #this never occurred, I guess, if a ghost is eaten, then it is not a ghost any longer
+                                #and a new one is born immediately, so you cannot judge whether you eat the ghost or not
+                                #if newPos in newGhostPoss, the only case is that pacman is eaten
+                                #also can use isLose() to check
             else: # the ghost is not scared, then the pacman is eaten, dead
                 features[-1] = 1
         current_foods = currentGameState.getFood().asList()
@@ -98,7 +107,6 @@ class ReflexAgent(Agent):
                     features[3] = -1.0/minDis # if any closet ghost has no enough scared time, then the agent is in danger
                 else:
                     features[3] = 1.0/minDis #otherwise, there is no danger
-
         return sum(w*f for w,f in zip(weights,features))
 
 
@@ -164,8 +172,48 @@ class MinimaxAgent(MultiAgentSearchAgent):
         gameState.isLose():
         Returns whether or not the game state is a losing state
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        def value(gameState,step):
+            if step//number_agents == self.depth or gameState.isWin() or gameState.isLose():
+                return self.evaluationFunction(gameState), 'Stop'
+            ind = step%number_agents
+            if ind == 0:
+                return maxValue(gameState,step)
+            else:
+                return minValue(gameState,step)
+
+        def maxValue(gameState,step):
+            agent_id =  step%number_agents
+            legal_actions = gameState.getLegalActions(agent_id)
+            max_value = float("-inf")
+            max_action = None
+            for action in legal_actions:
+                next_state = gameState.generateSuccessor(agent_id,action)
+                v,_ = value(next_state,step+1)
+                if v > max_value:
+                    max_value = v
+                    max_action = action
+            return max_value, max_action
+
+        def minValue(gameState,step):
+            agent_id = step%number_agents
+            legal_actions = gameState.getLegalActions(agent_id)
+            min_value = float("inf")
+            min_action = None
+            for action in legal_actions:
+                next_state = gameState.generateSuccessor(agent_id,action)
+                v,_ = value(next_state,step+1)
+                if v < min_value:
+                    min_value = v
+                    min_action = action
+            return min_value, min_action
+
+        number_agents = gameState.getNumAgents()
+        v,a =  value(gameState,0)
+        #print(v)
+        return a
+
+        #"*** YOUR CODE HERE ***"
+        #util.raiseNotDefined()
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -176,8 +224,53 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         """
         Returns the minimax action using self.depth and self.evaluationFunction
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        def value(gameState,step,alpha,beta):
+            if step//number_agents == self.depth or gameState.isWin() or gameState.isLose():
+                return self.evaluationFunction(gameState), 'Stop'
+            ind = step%number_agents
+            if ind == 0:
+                return maxValue(gameState,step,alpha,beta)
+            else:
+                return minValue(gameState,step,alpha,beta)
+
+        def maxValue(gameState,step,alpha,beta):
+            agent_id =  step%number_agents
+            legal_actions = gameState.getLegalActions(agent_id)
+            max_value = float("-inf")
+            max_action = None
+            for action in legal_actions:
+                next_state = gameState.generateSuccessor(agent_id,action)
+                v,_ = value(next_state,step+1,alpha,beta)
+                if v > max_value:
+                    max_value = v
+                    max_action = action
+                if max_value > beta:
+                    return max_value,max_action
+                alpha = max(alpha,max_value)
+            return max_value, max_action
+
+        def minValue(gameState,step,alpha,beta):
+            agent_id = step%number_agents
+            legal_actions = gameState.getLegalActions(agent_id)
+            min_value = float("inf")
+            min_action = None
+            for action in legal_actions:
+                next_state = gameState.generateSuccessor(agent_id,action)
+                v,_ = value(next_state,step+1,alpha,beta)
+                if v < min_value:
+                    min_value = v
+                    min_action = action
+                if min_value < alpha:
+                    return min_value,min_action
+                beta = min(beta,min_value)
+            return min_value, min_action
+
+        number_agents = gameState.getNumAgents()
+        v,a =  value(gameState,0,float("-inf"),float("inf"))
+        #print(v)
+        return a
+        #"*** YOUR CODE HERE ***"
+        #util.raiseNotDefined()
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
@@ -191,18 +284,96 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         All ghosts should be modeled as choosing uniformly at random from their
         legal moves.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        def value(gameState,step):
+            if step//number_agents == self.depth or gameState.isWin() or gameState.isLose():
+                return self.evaluationFunction(gameState), 'Stop'
+            ind = step%number_agents
+            if ind == 0:
+                return maxValue(gameState,step)
+            else:
+                return expValue(gameState,step)
 
-def betterEvaluationFunction(currentGameState):
+        def maxValue(gameState,step):
+            agent_id =  step%number_agents
+            legal_actions = gameState.getLegalActions(agent_id)
+            max_value = float("-inf")
+            max_action = None
+            for action in legal_actions:
+                next_state = gameState.generateSuccessor(agent_id,action)
+                v,_ = value(next_state,step+1)
+                if v > max_value:
+                    max_value = v
+                    max_action = action
+            return max_value, max_action
+
+        def expValue(gameState,step):
+            agent_id = step%number_agents
+            legal_actions = gameState.getLegalActions(agent_id)
+            ave_value = 0
+            #min_action = None
+            for action in legal_actions:
+                next_state = gameState.generateSuccessor(agent_id,action)
+                v,_ = value(next_state,step+1)
+                ave_value += v
+            return ave_value/len(legal_actions), None
+
+        number_agents = gameState.getNumAgents()
+        v,a =  value(gameState,0)
+        #print(v)
+        return a
+
+        #"*** YOUR CODE HERE ***"
+        #util.raiseNotDefined()
+
+def betterEvaluationFunction(currentGameState:GameState):
     """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
     evaluation function (question 5).
 
     DESCRIPTION: <write something here so we know what you did>
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    features = [0.]*8
+    weights = [20000,10,0.8,0.8,100,0.5,3,1]
+    #1/number_food,1/cloest_food_dis,
+    #1/num_pallets, 1/cloest_pallet, if_empty_pallet(encourage to eat the last pallet), scared_time(encourage the pacman to eat pallet to increase scared_time)
+    #encourage to eat the ghost, some scared time becomes 0, some are not
+    #1/distance_to_ghost
+    #weights = []
+    if currentGameState.isWin():
+        #print(currentGameState.getFood().asList())
+        return float("inf")
+    if currentGameState.isLose():
+        return float("-inf")
+    pac_pos = currentGameState.getPacmanPosition()
+    food_pos = currentGameState.getFood().asList()
+    num_food = len(food_pos)
+    ghost_states = currentGameState.getGhostStates()
+    ghost_scared_times = [ghostState.scaredTimer for ghostState in ghost_states]
+    ghost_pos = [g.getPosition() for g in ghost_states]
+    pallets = currentGameState.getCapsules()
+    features[0] = 1/num_food
+    food_dis = sorted([util.manhattanDistance(fp,pac_pos) for fp in food_pos])
+    features[1] = 1/food_dis[0]
+    pallets_dis = sorted([util.manhattanDistance(p,pac_pos) for p in pallets])
+    if pallets_dis:
+        features[2] = 1/len(pallets_dis)
+        features[3] = 1/pallets_dis[0]
+    features[4] = int(not pallets) # if pallets become zero, we need to encourage this
+    features[5] = sum(ghost_scared_times)
+    features[6] = 1 if 0 in ghost_scared_times and sum(ghost_scared_times)>0 else 0
+    # if some ghost's scared time becomes zero, some are not, then some ghost is eaten
+    # for those states after the ghost is eaten, this will always be 1, but does not afftect the action selection, because we compare the relative relation
+    ghost_dis = [util.manhattanDistance(g, pac_pos) for g in ghost_pos]
+    minDis = min(ghost_dis)
+    min_dis_ghost_inds = [i for i in range(len(ghost_dis)) if ghost_dis[i] == minDis]
+    min_dis_ghost_scared_times = [ghost_scared_times[i] for i in min_dis_ghost_inds]
+    if any(st < minDis for st in min_dis_ghost_scared_times):
+        features[7] = -1.0 / minDis  # if any closet ghost has no enough scared time, then the agent is in danger
+    else:
+        features[7] = 1.0 / minDis  # otherwise, there is no danger
+    return sum(w*f for w,f in zip(weights,features))
+    #"*** YOUR CODE HERE ***"
+    #util.raiseNotDefined()
 
 # Abbreviation
 better = betterEvaluationFunction
