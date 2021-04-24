@@ -301,7 +301,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
             for action in legal_actions:
                 next_state = gameState.generateSuccessor(agent_id,action)
                 v,_ = value(next_state,step+1)
-                if v > max_value:
+                if v >= max_value:
                     max_value = v
                     max_action = action
             return max_value, max_action
@@ -333,7 +333,7 @@ def betterEvaluationFunction(currentGameState:GameState):
     DESCRIPTION: <write something here so we know what you did>
     """
     features = [0.]*8
-    weights = [20000,10,0.8,0.8,100,0.5,3,1]
+    weights = [20000,10,1,1,45,0.5,3,1]
     #1/number_food,1/cloest_food_dis,
     #1/num_pallets, 1/cloest_pallet, if_empty_pallet(encourage to eat the last pallet), scared_time(encourage the pacman to eat pallet to increase scared_time)
     #encourage to eat the ghost, some scared time becomes 0, some are not
